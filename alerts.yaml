@@ -1,0 +1,198 @@
+groups:
+- name: node-exporter-rules
+  rules:
+  - alert: RebootRequired
+    annotations:
+      description: 'ЗО RT (ЦХД), Требуется перезагрузка ноды {{ $labels.instance }}'
+      summary: Instance {{ $labels.instance }} - reboot required
+    expr: node_reboot_required > 0
+    labels:
+      severity: minor
+
+  - alert: HostOutOfMemoryWarn
+    expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100 < 20
+    for: 1m
+    labels:
+      severity: minor
+    annotations:
+      summary: Host out of memory (instance {{ $labels.instance }})
+      description: "На хосте {{ $labels.instance }} заканчивается оперативная память (осталось < 20%)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: HostOutOfMemoryCrit
+    expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100 < 10
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: Host out of memory (instance {{ $labels.instance }})
+      description: "На хосте {{ $labels.instance }} скоро заканчится оперативная память (осталось < 10%)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+  
+  - alert: NodeFilesystemSpaceFillingUp
+    annotations:
+      description: "ЗО RT (ЦХД), Предиктивный алерт, сигнализирующий о том, что место закончится через 24 часа на {{ $labels.instance }}:{{ $labels.device }}"
+      summary: Filesystem is predicted to run out of space within the next 24 hours.
+    expr: "(\n  node_filesystem_avail_bytes{job=\"node-exporter\",fstype!=\"\"} / node_filesystem_size_bytes{job=\"\
+      node-exporter\",fstype!=\"\"} * 100 < 40\nand\n  predict_linear(node_filesystem_avail_bytes{job=\"\
+      node-exporter\",fstype!=\"\"}[6h], 24*60*60) < 0\nand\n  node_filesystem_readonly{job=\"\
+      node-exporter\",fstype!=\"\"} == 0\n)\n"
+    for: 1h
+    labels:
+      severity: info
+      event: '{alertname}:{{ $labels.device }}'
+
+  - alert: NodeFilesystemSpaceFillingUp
+    annotations:
+      description: "ЗО RT (ЦХД), Предиктивный алерт, сигнализирующий о том, что место закончится через 24 часа на {{ $labels.instance }}:{{ $labels.device }}"
+      summary: Filesystem is predicted to run out of space within the next 4 hours.
+    expr: "(\n  node_filesystem_avail_bytes{job=\"node-exporter\",fstype!=\"\"} / node_filesystem_size_bytes{job=\"\
+      node-exporter\",fstype!=\"\"} * 100 < 20\nand\n  predict_linear(node_filesystem_avail_bytes{job=\"\
+      node-exporter\",fstype!=\"\"}[6h], 4*60*60) < 0\nand\n  node_filesystem_readonly{job=\"\
+      node-exporter\",fstype!=\"\"} == 0\n)\n"
+    for: 1h
+    labels:
+      severity: critical
+      event: '{alertname}:{{ $labels.device }}'
+
+  - alert: NodeFilesystemAlmostOutOfSpace
+    annotations:
+      description: "ЗО RT (ЦХД), Осталось менее 5% доступного дискового пространства на {{ $labels.instance }}:{{ $labels.device }}"
+      summary: Filesystem has less than 5% space left.
+    expr: "(\n  node_filesystem_avail_bytes{job=\"node-exporter\",fstype!=\"\"} / node_filesystem_size_bytes{job=\"\
+      node-exporter\",fstype!=\"\"} * 100 < 5\nand\n  node_filesystem_readonly{job=\"node-exporter\",fstype!=\"\
+      \"} == 0\n)\n"
+    for: 1h
+    labels:
+      severity: minor
+      event: '{alertname}:{{ $labels.device }}'
+  
+  - alert: HostOutOfDiskSpace
+    expr: "(node_filesystem_avail_bytes * 100) / node_filesystem_size_bytes < 20 and ON (instance, device, mountpoint) node_filesystem_readonly == 0"
+    for: 5m
+    labels:
+      severity: minor
+      event: '{alertname}:{{ $labels.device }}'
+    annotations:
+      summary: "Host out of disk space (instance {{ $labels.instance }}:{{ $labels.device }})"
+      description: "ЗО RT (ЦХД), Осталось менее 20% доступного дискового пространства на {{ $labels.instance }}:{{ $labels.device }}"
+
+  - alert: HostOutOfDiskSpace
+    expr: "(node_filesystem_avail_bytes * 100) / node_filesystem_size_bytes < 5 and ON (instance, device, mountpoint) node_filesystem_readonly == 0"
+    for: 5m
+    labels:
+      severity: critical
+      event: '{alertname}:{{ $labels.device }}'
+    annotations:
+      summary: "Host out of disk space (instance {{ $labels.instance }})"
+      description: "ЗО RT (ЦХД), Осталось менее 5% доступного дискового пространства на {{ $labels.instance }}:{{ $labels.device }}"
+
+  - alert: NodeFilesystemAlmostOutOfSpace
+    annotations:
+      description: "ЗО RT (ЦХД), Осталось менее 5% доступных inode на {{ $labels.instance }}:{{ $labels.device }}"
+      summary: Filesystem has less than 3% space left.
+    expr: "(\n  node_filesystem_avail_bytes{job=\"node-exporter\",fstype!=\"\"} / node_filesystem_size_bytes{job=\"\
+      node-exporter\",fstype!=\"\"} * 100 < 3\nand\n  node_filesystem_readonly{job=\"node-exporter\",fstype!=\"\
+      \"} == 0\n)\n"
+    for: 1h
+    labels:
+      severity: critical
+      event: '{alertname}:{{ $labels.device }}'
+
+  - alert: NodeFilesystemFilesFillingUp
+    annotations:
+      description: "ЗО RT (ЦХД), Предиктивный алерт, сигнализирующий о том, что в течение 24-х часов закончатся inode на {{ $labels.instance }}:{{ $labels.device }}"
+      summary: Filesystem is predicted to run out of inodes within the next 24 hours.
+    expr: "(\n  node_filesystem_files_free{job=\"node-exporter\",fstype!=\"\"} / node_filesystem_files{job=\"\
+      node-exporter\",fstype!=\"\"} * 100 < 40\nand\n  predict_linear(node_filesystem_files_free{job=\"\
+      node-exporter\",fstype!=\"\"}[6h], 24*60*60) < 0\nand\n  node_filesystem_readonly{job=\"\
+      node-exporter\",fstype!=\"\"} == 0\n)\n"
+    for: 1h
+    labels:
+      severity: minor
+      event: '{alertname}:{{ $labels.device }}'
+
+  - alert: NodeFilesystemFilesFillingUp
+    annotations:
+      description: "ЗО RT (ЦХД), Предиктивный алерт, сигнализирующий о том, что в течение 24-х часов закончатся inode на {{ $labels.instance }}:{{ $labels.device }}"
+      summary: Filesystem is predicted to run out of inodes within the next 4 hours.
+    expr: "(\n  node_filesystem_files_free{job=\"node-exporter\",fstype!=\"\"} / node_filesystem_files{job=\"\
+      node-exporter\",fstype!=\"\"} * 100 < 20\nand\n  predict_linear(node_filesystem_files_free{job=\"\
+      node-exporter\",fstype!=\"\"}[6h], 4*60*60) < 0\nand\n  node_filesystem_readonly{job=\"\
+      node-exporter\",fstype!=\"\"} == 0\n)\n"
+    for: 1h
+    labels:
+      severity: critical
+      event: '{alertname}:{{ $labels.device }}'
+
+  - alert: NodeFilesystemAlmostOutOfFiles
+    annotations:
+      description: "ЗО RT (ЦХД), Осталось менее 5% доступных inode на {{ $labels.instance }}:{{ $labels.device }}"
+      summary: Filesystem has less than 5% inodes left.
+    expr: "(\n  node_filesystem_files_free{job=\"node-exporter\",fstype!=\"\"} / node_filesystem_files{job=\"\
+      node-exporter\",fstype!=\"\"} * 100 < 5\nand\n  node_filesystem_readonly{job=\"node-exporter\",fstype!=\"\
+      \"} == 0\n)\n"
+    for: 1h
+    labels:
+      severity: minor
+      event: '{alertname}:{{ $labels.device }}'
+
+  - alert: NodeFilesystemAlmostOutOfFiles
+    annotations:
+      description: "ЗО RT (ЦХД), Осталось менее 5% доступных inode на {{ $labels.instance }}:{{ $labels.device }}"
+      summary: Filesystem has less than 3% inodes left.
+    expr: "(\n  node_filesystem_files_free{job=\"node-exporter\",fstype!=\"\"} / node_filesystem_files{job=\"\
+      node-exporter\",fstype!=\"\"} * 100 < 3\nand\n  node_filesystem_readonly{job=\"node-exporter\",fstype!=\"\
+      \"} == 0\n)\n"
+    for: 1h
+    labels:
+      severity: critical
+      event: '{alertname}:{{ $labels.device }}'
+      
+  - alert: NodeNetworkReceiveErrs
+    annotations:
+      description: "ЗО RT (ЦХД), Высокое кол-во ошибок получения данных на сетевом интерфейсе на протяжение последнего часа на {{ $labels.instance }}:{{ $labels.device }}"
+      summary: Network interface is reporting many receive errors.
+    expr: 'increase(node_network_receive_errs_total[2m]) > 10'
+    for: 1h
+    labels:
+      severity: minor
+      event: '{alertname}:{{ $labels.device }}'
+
+  - alert: NodeNetworkTransmitErrs
+    annotations:
+      description: "ЗО RT (ЦХД), Высокое кол-во ошибок передачи данных на сетевом интерфейсе на протяжение последнего часа на {{ $labels.instance }}:{{ $labels.device }}"
+      summary: Network interface is reporting many transmit errors.
+    expr: 'increase(node_network_transmit_errs_total[2m]) > 10'
+    for: 1h
+    labels:
+      severity: minor
+      event: '{alertname}:{{ $labels.device }}'
+
+  - alert: NodeHighNumberConntrackEntriesUsed
+    annotations:
+      description: "ЗО RT (ЦХД), Утилизировано более 75% таблицы conntrack на {{ $labels.instance }}"
+      summary: Number of conntrack are getting close to the limit
+    expr: '(node_nf_conntrack_entries / node_nf_conntrack_entries_limit) > 0.75'
+    labels:
+      severity: minor
+
+  - alert: NodeClockSkewDetected
+    annotations:
+      message: "ЗО RT (ЦХД), Время отстает, возможно не проходит синхронизация с NTP на {{ $labels.instance }}"
+      summary: Clock skew detected.
+    expr: "(\n  node_timex_offset_seconds > 0.05\nand\n  deriv(node_timex_offset_seconds[5m])\
+      \ >= 0\n)\nor\n(\n  node_timex_offset_seconds < -0.05\nand\n  deriv(node_timex_offset_seconds[5m])\
+      \ <= 0\n)\n"
+    for: 10m
+    labels:
+      severity: minor
+
+  - alert: NodeClockNotSynchronising
+    annotations:
+      message: "ЗО RT (ЦХД), Время на узле {{ $labels.instance }} не синхронизировано. Проверьте настройки NTP"
+      summary: Clock not synchronising.
+    expr: min_over_time(node_timex_sync_status[1m]) == 0 and node_timex_maxerror_seconds >= 16
+    for: 2m
+    labels:
+      severity: minor
+    severity: minor
+ing
