@@ -2,9 +2,8 @@
 info:
   - info
   - none
-minor:
+warning:
   - minor
-  - warning
 major:
   - error
   - high
